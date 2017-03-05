@@ -420,6 +420,9 @@ struct ngx_http_request_s {
 
     ngx_http_variable_value_t        *variables;
 
+    ngx_array_t                       need_headers_held;
+                                         /* of ngx_module_t * */
+
 #if (NGX_PCRE)
     ngx_uint_t                        ncaptures;
     int                              *captures;
@@ -524,6 +527,7 @@ struct ngx_http_request_s {
     unsigned                          request_complete:1;
     unsigned                          request_output:1;
     unsigned                          header_sent:1;
+    unsigned                          out_missing_header:1;
     unsigned                          expect_tested:1;
     unsigned                          root_tested:1;
     unsigned                          done:1;

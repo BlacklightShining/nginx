@@ -570,6 +570,14 @@ ngx_http_create_request(ngx_connection_t *c)
         return NULL;
     }
 
+    if (ngx_array_init(&r->need_headers_held, r->pool, 1,
+                       sizeof(ngx_module_t *))
+        != NGX_OK)
+    {
+        ngx_destroy_pool(r->pool);
+        return NULL;
+    }
+
 #if (NGX_HTTP_SSL)
     if (c->ssl) {
         r->main_filter_need_in_memory = 1;

@@ -12,7 +12,6 @@
 
 
 static ngx_int_t ngx_http_header_filter_init(ngx_conf_t *cf);
-static ngx_int_t ngx_http_header_filter(ngx_http_request_t *r);
 
 
 static ngx_http_module_t  ngx_http_header_filter_module_ctx = {
@@ -147,7 +146,7 @@ ngx_http_header_out_t  ngx_http_headers_out[] = {
 };
 
 
-static ngx_int_t
+ngx_int_t
 ngx_http_header_filter(ngx_http_request_t *r)
 {
     u_char                    *p;
@@ -166,6 +165,12 @@ ngx_http_header_filter(ngx_http_request_t *r)
     struct sockaddr_in6       *sin6;
 #endif
     u_char                     addr[NGX_SOCKADDR_STRLEN];
+
+    if (r->method != NGX_HTTP_HEAD) {
+        if (r->need_headers_held.nelts != 0) {
+            return NGX_OK;
+        }
+    }
 
     if (r->header_sent) {
         return NGX_OK;

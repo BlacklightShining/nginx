@@ -50,6 +50,7 @@ ngx_http_write_filter(ngx_http_request_t *r, ngx_chain_t *in)
     off_t                      size, sent, nsent, limit;
     ngx_uint_t                 last, flush, sync;
     ngx_msec_t                 delay;
+    ngx_buf_t                 *buf;
     ngx_chain_t               *cl, *ln, **ll, *chain;
     ngx_connection_t          *c;
     ngx_http_core_loc_conf_t  *clcf;
@@ -113,6 +114,47 @@ ngx_http_write_filter(ngx_http_request_t *r, ngx_chain_t *in)
         if (cl->buf->last_buf) {
             last = 1;
         }
+    }
+
+    if (r->need_headers_held.nelts != 0) {
+        r->out_missing_header = 1;
+        if (ngx_chain_add_copy(r->pool, ll, in) != NGX_OK) {
+            return NGX_ERROR;
+        }
+        if (!flush) {
+            return NGX_OK;
+        }
+        for (cl = r->out; cl; cl = cl->next) {
+            if ((cl->buf->flush || cl->buf->recycled)
+                && ngx_buf_in_memory(cl->buf))
+            {
+                buf = ngx_create_temp_buf(r->pool,
+                                          cl->buf->last - cl->buf->pos);
+                if (!buf) {
+                    return NGX_ERROR;
+                }
+                ngx_memcpy(buf->pos, cl->buf->pos,
+                           cl->buf->last - cl->buf->pos);
+                buf->last = buf->end;
+                cl->buf = buf;
+            }
+        }
+        return NGX_OK;
+    } else if (!r->header_sent) {
+        r->out_missing_header = 1;
+        if (ngx_http_header_filter(r) == NGX_ERROR) {
+            return NGX_ERROR;
+        }
+        /* continue with the rest of the function so that `in` gets sent too */
+    } else if (r->out_missing_header) {
+        /*
+         * we have the headers as `in` and potentially some or all of the body
+         * as `r->out`; call ourself in such a way that the headers go first
+         */
+        r->out_missing_header = 0;
+        chain = r->out;
+        r->out = in;
+        return ngx_http_write_filter(r, chain);
     }
 
     /* add the new chain to the existent one */
